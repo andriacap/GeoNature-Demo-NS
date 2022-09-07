@@ -1,14 +1,5 @@
-import {
-  Component,
-  OnInit,
-  OnChanges,
-  Input,
-  ViewChild,
-  AfterViewInit,
-  SimpleChanges,
-  Output,
-  EventEmitter
-} from '@angular/core';
+import { Component, OnInit, OnChanges, Input, ViewChild, SimpleChanges } from '@angular/core';
+import { Clipboard } from '@angular/cdk/clipboard';
 import { SyntheseDataService } from '@geonature_common/form/synthese-form/synthese-data.service';
 import { MapService } from '@geonature_common/map/map.service';
 import { CommonService } from '@geonature_common/service/common.service';
@@ -17,22 +8,23 @@ import { AppConfig } from '@geonature_config/app.config';
 import { NgbActiveModal } from '@ng-bootstrap/ng-bootstrap';
 import { MediaService } from '@geonature_common/service/media.service';
 import { finalize } from 'rxjs/operators';
-import { constants } from 'crypto';
+import { isEmpty, find } from 'lodash';
 import { GlobalSubService } from '@geonature/services/global-sub.service';
 
 @Component({
   selector: 'pnx-synthese-info-obs',
   templateUrl: 'synthese-info-obs.component.html',
   styleUrls: ['./synthese-info-obs.component.scss'],
-  providers: [MapService]
+  providers: [MapService],
 })
 export class SyntheseInfoObsComponent implements OnInit, OnChanges {
   @Input() idSynthese: number;
   @Input() header: false;
   @Input() mailCustomSubject: string;
   @Input() mailCustomBody: string;
+  @Input() useFrom: 'synthese' | 'validation';
   public selectedObs: any;
-  public validationHistory: Array<any>;
+  public validationHistory: Array<any> = [];
   public selectedObsTaxonDetail: any;
   @ViewChild('tabGroup') tabGroup;
   public APP_CONFIG = AppConfig;
@@ -52,6 +44,11 @@ export class SyntheseInfoObsComponent implements OnInit, OnChanges {
 
   public profile: any;
   public phenology: any[];
+  public alertOpen: boolean;
+  public alert;
+  public pin;
+  public activateAlert = false;
+  public activatePin = false;
   public validationColor = {
     '0': '#FFFFFF',
     '1': '#8BC34A',
@@ -59,7 +56,7 @@ export class SyntheseInfoObsComponent implements OnInit, OnChanges {
     '3': '#FF9800',
     '4': '#FF5722',
     '5': '#BDBDBD',
-    '6': '#FFFFFF'
+    '6': '#FFFFFF',
   };
   public comment: string;
   constructor(
@@ -69,14 +66,17 @@ export class SyntheseInfoObsComponent implements OnInit, OnChanges {
     public mediaService: MediaService,
     private _commonService: CommonService,
     private _mapService: MapService,
-    private globalSubService: GlobalSubService
-  ) { }
+    private globalSubService: GlobalSubService,
+    private _clipboard: Clipboard
+  ) {}
 
   ngOnInit() {
     this.loadAllInfo(this.idSynthese);
-    this.globalSubService.currentModuleSub.subscribe(module => {
+    this.globalSubService.currentModuleSub.subscribe((module) => {
       if (module) {
         this.moduleInfos = { id: module.id_module, code: module.module_code };
+        this.activateAlert = AppConfig.SYNTHESE.ALERT_MODULES.includes(this.moduleInfos?.code);
+        this.activatePin = AppConfig.SYNTHESE.PIN_MODULES.includes(this.moduleInfos?.code);
       }
     });
   }
@@ -97,7 +97,6 @@ export class SyntheseInfoObsComponent implements OnInit, OnChanges {
     }
   }
 
-
   loadAllInfo(idSynthese) {
     this.isLoading = true;
     this._dataService
@@ -107,8 +106,10 @@ export class SyntheseInfoObsComponent implements OnInit, OnChanges {
           this.isLoading = false;
         })
       )
-      .subscribe(data => {
+      .subscribe((data) => {
         this.selectedObs = data['properties'];
+        this.alert = find(data.properties.reports, ['report_type.type', 'alert']);
+        this.pin = find(data.properties.reports, ['report_type.type', 'pin']);
         this.selectCdNomenclature = this.selectedObs?.nomenclature_valid_status.cd_nomenclature;
         this.selectedGeom = data;
         this.selectedObs['municipalities'] = [];
@@ -121,7 +122,7 @@ export class SyntheseInfoObsComponent implements OnInit, OnChanges {
         const areaDict = {};
         // for each area type we want all the areas: we build an dict of array
         if (this.selectedObs.areas) {
-          this.selectedObs.areas.forEach(area => {
+          this.selectedObs.areas.forEach((area) => {
             if (!areaDict[area.area_type.type_name]) {
               areaDict[area.area_type.type_name] = [area];
             } else {
@@ -139,26 +140,30 @@ export class SyntheseInfoObsComponent implements OnInit, OnChanges {
 
         this._gnDataService
           .getTaxonAttributsAndMedia(this.selectedObs.cd_nom, AppConfig.SYNTHESE.ID_ATTRIBUT_TAXHUB)
-          .subscribe(taxAttr => {
+          .subscribe((taxAttr) => {
             this.selectObsTaxonInfo = taxAttr;
           });
 
-        this.loadValidationHistory(this.selectedObs['unique_id_sinp']);
-        this._gnDataService.getTaxonInfo(this.selectedObs['cd_nom']).subscribe(taxInfo => {
+        if (this.selectedObs['unique_id_sinp']) {
+          this.loadValidationHistory(this.selectedObs['unique_id_sinp']);
+        }
+        this._gnDataService.getTaxonInfo(this.selectedObs['cd_nom']).subscribe((taxInfo) => {
           this.selectedObsTaxonDetail = taxInfo;
           if (this.selectedObs.cor_observers) {
-            this.email = this.selectedObs.cor_observers.map(el => el.email).filter(v => v).join();
+            this.email = this.selectedObs.cor_observers
+              .map((el) => el.email)
+              .filter((v) => v)
+              .join();
             this.mailto = this.formatMailContent(this.email);
           }
 
-          this._gnDataService.getProfile(taxInfo.cd_ref).subscribe(profile => {
-
+          this._gnDataService.getProfile(taxInfo.cd_ref).subscribe((profile) => {
             this.profile = profile;
           });
         });
       });
 
-    this._gnDataService.getProfileConsistancyData(this.idSynthese).subscribe(dataChecks => {
+    this._gnDataService.getProfileConsistancyData(this.idSynthese).subscribe((dataChecks) => {
       this.profileDataChecks = dataChecks;
     });
   }
@@ -170,24 +175,22 @@ export class SyntheseInfoObsComponent implements OnInit, OnChanges {
   formatMailContent(email) {
     let mailto = String('mailto:' + email);
     if (this.mailCustomSubject || this.mailCustomBody) {
-
       // Mise en forme des données
       const d = { ...this.selectedObsTaxonDetail, ...this.selectedObs };
       if (this.selectedObs.source.url_source) {
         d['data_link'] = [
           this.APP_CONFIG.URL_APPLICATION,
           this.selectedObs.source.url_source,
-          this.selectedObs.entity_source_pk_value
+          this.selectedObs.entity_source_pk_value,
         ].join('/');
       } else {
         d['data_link'] = '';
       }
 
-      d['communes'] = this.selectedObs.areas.filter(
-        area => area.area_type.type_code === 'COM'
-      ).map(
-        area => area.area_name
-      ).join(', ');
+      d['communes'] = this.selectedObs.areas
+        .filter((area) => area.area_type.type_code === 'COM')
+        .map((area) => area.area_name)
+        .join(', ');
 
       let contentMedias = '';
       if (!this.selectedObs.medias) {
@@ -196,7 +199,7 @@ export class SyntheseInfoObsComponent implements OnInit, OnChanges {
         if (!this.selectedObs.medias.length) {
           contentMedias = 'Aucun media';
         }
-        this.selectedObs.medias.map(media => {
+        this.selectedObs.medias.map((media) => {
           contentMedias += '\n\tTitre : ' + media.title_fr;
           contentMedias += '\n\tLien vers le media : ' + this.mediaService.href(media);
           if (media.description_fr) {
@@ -212,7 +215,9 @@ export class SyntheseInfoObsComponent implements OnInit, OnChanges {
       // Construction du mail
       if (this.mailCustomSubject !== undefined) {
         try {
-          mailto += `?subject=${new Function('d', 'return ' + '`' + this.mailCustomSubject + '`')(d)}`;
+          mailto += `?subject=${new Function('d', 'return ' + '`' + this.mailCustomSubject + '`')(
+            d
+          )}`;
         } catch (error) {
           console.log('ERROR : unable to eval mail subject');
         }
@@ -233,38 +238,35 @@ export class SyntheseInfoObsComponent implements OnInit, OnChanges {
   }
 
   loadValidationHistory(uuid) {
-    this._gnDataService.getValidationHistory(uuid).subscribe(
-      data => {
-        this.validationHistory = data;
-        // eslint-disable-next-line guard-for-in
-        for (const row in this.validationHistory) {
-          // format date
-          const date = new Date(this.validationHistory[row].date);
-          this.validationHistory[row].date = date.toLocaleDateString('fr-FR');
-          this.validationHistory[row].dateTime = date;
-          // format comments
-          if (
-            this.validationHistory[row].comment === 'None' ||
-            this.validationHistory[row].comment === 'auto = default value'
-          ) {
-            this.validationHistory[row].comment = '';
-          }
-          // format validator
-          if (this.validationHistory[row].typeValidation === 'True') {
-            this.validationHistory[row].validator = 'Attribution automatique';
-          }
+    this._gnDataService.getValidationHistory(uuid).subscribe((data) => {
+      this.validationHistory = data;
+      // eslint-disable-next-line guard-for-in
+      for (const row in this.validationHistory) {
+        // format date
+        const date = new Date(this.validationHistory[row].date);
+        this.validationHistory[row].date = date.toLocaleDateString('fr-FR');
+        this.validationHistory[row].dateTime = date;
+        // format comments
+        if (
+          this.validationHistory[row].comment === 'None' ||
+          this.validationHistory[row].comment === 'auto = default value'
+        ) {
+          this.validationHistory[row].comment = '';
+        }
+        // format validator
+        if (this.validationHistory[row].typeValidation === 'True') {
+          this.validationHistory[row].validator = 'Attribution automatique';
         }
       }
-    );
+    });
   }
 
   loadProfile(cdRef) {
     this._gnDataService.getProfile(cdRef).subscribe(
-      data => {
+      (data) => {
         this.profile = data;
-
       },
-      err => {
+      (err) => {
         console.log(err);
         if (err.status === 404) {
           this._commonService.translateToaster('warning', 'Aucun profile');
@@ -275,7 +277,7 @@ export class SyntheseInfoObsComponent implements OnInit, OnChanges {
             'ERROR: IMPOSSIBLE TO CONNECT TO SERVER (check your connection)'
           );
         }
-      },
+      }
     );
   }
 
@@ -283,7 +285,71 @@ export class SyntheseInfoObsComponent implements OnInit, OnChanges {
     window.open(url_source + '/' + id_pk_source, '_blank');
   }
 
-  displaySuccessToaster() {
-    this._commonService.translateToaster('info', 'Synthese.copy')
+  /**
+   * This GET is required to get id_report autogenerate on creation, and DELETE with id_report next.
+   */
+  getReport(type) {
+    this._dataService
+      .getReports(`idSynthese=${this.idSynthese}&type=${type}&sort=asc`)
+      .subscribe((data) => {
+        this[type] = data[0];
+      });
+  }
+
+  openCloseAlert() {
+    this.alertOpen = !this.alertOpen;
+    // avoid useless request
+    if (AppConfig.SYNTHESE?.ALERT_MODULES && AppConfig.SYNTHESE.ALERT_MODULES.length) {
+      this.getReport('alert');
+    }
+  }
+
+  alertExists() {
+    return !isEmpty(this.alert);
+  }
+
+  pinExists() {
+    return !isEmpty(this.pin);
+  }
+
+  /**
+   * Create only one pin by user by id_synthese.
+   * Only owner car delete or create pin for himself.
+   */
+  addPin() {
+    this._dataService
+      .createReport({
+        type: 'pin',
+        item: this.idSynthese,
+        content: '',
+      })
+      .subscribe((success) => {
+        this._commonService.translateToaster('success', 'Epinglé !');
+        this.getReport('pin');
+      });
+  }
+
+  deletePin() {
+    this._dataService.deleteReport(this.pin.id_report).subscribe(() => {
+      this._commonService.translateToaster('info', 'Epingle supprimée !');
+      this.pin = {};
+    });
+  }
+
+  /**
+   * Manage click action on pin button to add or delete pin
+   */
+  pinSelectedObs() {
+    if (isEmpty(this.pin)) {
+      this.addPin();
+    }
+    this.deletePin();
+  }
+
+  copyToClipBoard() {
+    this._clipboard.copy(
+      `${AppConfig.URL_APPLICATION}/#/${this.useFrom}/occurrence/${this.selectedObs.id_synthese}`
+    );
+    this._commonService.translateToaster('info', 'Synthese.copy');
   }
 }

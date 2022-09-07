@@ -1,5 +1,5 @@
 from geoalchemy2 import Geometry
-from sqlalchemy import ForeignKey, not_
+from sqlalchemy import FetchedValue, ForeignKey, not_
 from sqlalchemy.sql import select, func, and_
 from sqlalchemy.orm import relationship, backref
 from sqlalchemy.dialects.postgresql import UUID, JSONB
@@ -17,12 +17,11 @@ from geonature.core.gn_meta.models import TDatasets
 from geonature.utils.env import DB
 
 
-
 class ReleveModel(DB.Model):
     """
-        Classe abstraite permettant d'ajout des méthodes
-        de controle d'accès à la donnée en fonction
-        des droits associés à un utilisateur
+    Classe abstraite permettant d'ajout des méthodes
+    de controle d'accès à la donnée en fonction
+    des droits associés à un utilisateur
     """
 
     __abstract__ = True
@@ -35,10 +34,11 @@ class ReleveModel(DB.Model):
         return self.id_dataset in (
             d.id_dataset for d in TDatasets.query.filter_by_scope(int(user.value_filter)).all()
         )
+
     def user_is_allowed_to(self, user, level):
         """
-            Fonction permettant de dire si un utilisateur
-            peu ou non agir sur une donnée
+        Fonction permettant de dire si un utilisateur
+        peu ou non agir sur une donnée
         """
         # Si l'utilisateur n'a pas de droit d'accès aux données
         if level == "0" or level not in ("1", "2", "3"):
@@ -61,17 +61,15 @@ class ReleveModel(DB.Model):
 
     def get_releve_if_allowed(self, user):
         """
-            Return the releve if the user is allowed
-            params:
-                user: object from TRole
+        Return the releve if the user is allowed
+        params:
+            user: object from TRole
         """
         if self.user_is_allowed_to(user, user.value_filter):
             return self
 
         raise Forbidden(
-            ('User "{}" cannot "{}" this current releve').format(
-                user.id_role, user.code_action
-            ),
+            ('User "{}" cannot "{}" this current releve').format(user.id_role, user.code_action),
         )
 
     def get_releve_cruved(self, user, user_cruved):
@@ -83,8 +81,7 @@ class ReleveModel(DB.Model):
             - user_cruved: object return by cruved_for_user_in_app(user)
         """
         return {
-            action: self.user_is_allowed_to(user, level)
-            for action, level in user_cruved.items()
+            action: self.user_is_allowed_to(user, level) for action, level in user_cruved.items()
         }
 
 
@@ -124,14 +121,18 @@ class CorCountingOccurrence(DB.Model):
         ForeignKey("pr_occtax.t_occurrences_occtax.id_occurrence_occtax"),
         nullable=False,
     )
-    id_nomenclature_life_stage = DB.Column(DB.Integer, nullable=False)
-    id_nomenclature_sex = DB.Column(DB.Integer, nullable=False)
-    id_nomenclature_obj_count = DB.Column(DB.Integer, nullable=False)
-    id_nomenclature_type_count = DB.Column(DB.Integer)
+    id_nomenclature_life_stage = DB.Column(
+        DB.Integer, nullable=False, server_default=FetchedValue()
+    )
+    id_nomenclature_sex = DB.Column(DB.Integer, nullable=False, server_default=FetchedValue())
+    id_nomenclature_obj_count = DB.Column(
+        DB.Integer, nullable=False, server_default=FetchedValue()
+    )
+    id_nomenclature_type_count = DB.Column(DB.Integer, server_default=FetchedValue())
     count_min = DB.Column(DB.Integer)
     count_max = DB.Column(DB.Integer)
 
-    #additional fields dans occtax MET 14/10/2020
+    # additional fields dans occtax MET 14/10/2020
     additional_fields = DB.Column(JSONB)
 
     readonly_fields = [
@@ -148,6 +149,7 @@ class CorCountingOccurrence(DB.Model):
         lazy="select",
     )
 
+
 @serializable
 class TOccurrencesOccurrence(DB.Model):
     __tablename__ = "t_occurrences_occtax"
@@ -156,17 +158,17 @@ class TOccurrencesOccurrence(DB.Model):
     id_releve_occtax = DB.Column(
         DB.Integer, ForeignKey("pr_occtax.t_releves_occtax.id_releve_occtax")
     )
-    id_nomenclature_obs_technique = DB.Column(DB.Integer)
-    id_nomenclature_bio_condition = DB.Column(DB.Integer)
-    id_nomenclature_bio_status = DB.Column(DB.Integer)
-    id_nomenclature_naturalness = DB.Column(DB.Integer)
-    id_nomenclature_exist_proof = DB.Column(DB.Integer)
-    id_nomenclature_observation_status = DB.Column(DB.Integer)
-    id_nomenclature_blurring = DB.Column(DB.Integer)
-    id_nomenclature_source_status = DB.Column(DB.Integer)
+    id_nomenclature_obs_technique = DB.Column(DB.Integer, server_default=FetchedValue())
+    id_nomenclature_bio_condition = DB.Column(DB.Integer, server_default=FetchedValue())
+    id_nomenclature_bio_status = DB.Column(DB.Integer, server_default=FetchedValue())
+    id_nomenclature_naturalness = DB.Column(DB.Integer, server_default=FetchedValue())
+    id_nomenclature_exist_proof = DB.Column(DB.Integer, server_default=FetchedValue())
+    id_nomenclature_observation_status = DB.Column(DB.Integer, server_default=FetchedValue())
+    id_nomenclature_blurring = DB.Column(DB.Integer, server_default=FetchedValue())
+    id_nomenclature_source_status = DB.Column(DB.Integer, server_default=FetchedValue())
     determiner = DB.Column(DB.Unicode)
-    id_nomenclature_determination_method = DB.Column(DB.Integer)
-    id_nomenclature_behaviour = DB.Column(DB.Integer)
+    id_nomenclature_determination_method = DB.Column(DB.Integer, server_default=FetchedValue())
+    id_nomenclature_behaviour = DB.Column(DB.Integer, server_default=FetchedValue())
     cd_nom = DB.Column(DB.Integer, ForeignKey(Taxref.cd_nom))
     nom_cite = DB.Column(DB.Unicode)
     meta_v_taxref = DB.Column(
@@ -177,10 +179,10 @@ class TOccurrencesOccurrence(DB.Model):
     digital_proof = DB.Column(DB.Unicode)
     non_digital_proof = DB.Column(DB.Unicode)
     comment = DB.Column(DB.Unicode)
-    
-    #additional fields dans occtax MET 28/09/2020
+
+    # additional fields dans occtax MET 28/09/2020
     additional_fields = DB.Column(JSONB)
-    
+
     unique_id_occurence_occtax = DB.Column(
         UUID(as_uuid=True),
         default=select([func.uuid_generate_v4()]),
@@ -204,12 +206,10 @@ class TRelevesOccurrence(ReleveModel):
     __tablename__ = "t_releves_occtax"
     __table_args__ = {"schema": "pr_occtax"}
     id_releve_occtax = DB.Column(DB.Integer, primary_key=True)
-    unique_id_sinp_grp = DB.Column(
-        UUID(as_uuid=True), default=select([func.uuid_generate_v4()])
-    )
+    unique_id_sinp_grp = DB.Column(UUID(as_uuid=True), default=select([func.uuid_generate_v4()]))
     id_dataset = DB.Column(DB.Integer, ForeignKey("gn_meta.t_datasets.id_dataset"))
     id_digitiser = DB.Column(DB.Integer, ForeignKey("utilisateurs.t_roles.id_role"))
-    id_nomenclature_grp_typ = DB.Column(DB.Integer)
+    id_nomenclature_grp_typ = DB.Column(DB.Integer, server_default=FetchedValue())
     grp_method = DB.Column(DB.Unicode)
     observers_txt = DB.Column(DB.Unicode)
     date_min = DB.Column(DB.DateTime)
@@ -220,8 +220,8 @@ class TRelevesOccurrence(ReleveModel):
     altitude_max = DB.Column(DB.Integer)
     depth_min = DB.Column(DB.Integer)
     depth_max = DB.Column(DB.Integer)
-    id_nomenclature_tech_collect_campanule = DB.Column(DB.Integer)
-    id_nomenclature_geo_object_nature = DB.Column(DB.Integer)
+    id_nomenclature_tech_collect_campanule = DB.Column(DB.Integer, server_default=FetchedValue())
+    id_nomenclature_geo_object_nature = DB.Column(DB.Integer, server_default=FetchedValue())
     meta_device_entry = DB.Column(DB.Unicode)
     comment = DB.Column(DB.Unicode)
     place_name = DB.Column(DB.Unicode)
@@ -231,8 +231,6 @@ class TRelevesOccurrence(ReleveModel):
     precision = DB.Column(DB.Integer)
 
     habitat = relationship(Habref, lazy="select")
-
-    #additional fields dans occtax MET 28/09/2020
     additional_fields = DB.Column(JSONB)
 
     t_occurrences_occtax = relationship(
@@ -319,4 +317,3 @@ class DefaultNomenclaturesValue(DB.Model):
     mnemonique_type = DB.Column(DB.Integer, primary_key=True)
     id_organism = DB.Column(DB.Integer, primary_key=True)
     id_nomenclature = DB.Column(DB.Integer, primary_key=True)
-	

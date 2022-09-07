@@ -8,26 +8,22 @@ much more efficient
 import datetime
 import uuid
 
-from flask import current_app, request
-from sqlalchemy import func, or_, and_, select, join
+from sqlalchemy import func, or_, and_, select
 from sqlalchemy.sql import text
 from sqlalchemy.orm import aliased
 from shapely.wkt import loads
 from werkzeug.exceptions import BadRequest
 from geoalchemy2.shape import from_shape
 
-from utils_flask_sqla_geo.utilsgeometry import circle_from_point
-
 from geonature.utils.env import DB
 from geonature.core.taxonomie.models import Taxref, CorTaxonAttribut, TaxrefLR
 from geonature.core.gn_synthese.models import (
-    Synthese,
     CorObserverSynthese,
-    TSources,
     CorAreaSynthese,
+    BibReportsTypes,
+    TReport,
 )
 from geonature.core.gn_meta.models import (
-    TAcquisitionFramework,
     CorDatasetActor,
     TDatasets,
 )
@@ -36,20 +32,21 @@ from geonature.utils.errors import GeonatureApiError
 
 class SyntheseQuery:
     """
-        class for building synthese query and manage join
+    class for building synthese query and manage join
 
-        Attributes:
-            query: SQLA select object
-            filters: dict of query string filters
-            model: a SQLA model
-            _already_joined_table: (private) a list of already joined table. Auto build with 'add_join' method
-            query_joins = SQLA Join object
+    Attributes:
+        query: SQLA select object
+        filters: dict of query string filters
+        model: a SQLA model
+        _already_joined_table: (private) a list of already joined table. Auto build with 'add_join' method
+        query_joins = SQLA Join object
     """
 
-    def __init__(self, 
-        model, 
-        query, 
-        filters, 
+    def __init__(
+        self,
+        model,
+        query,
+        filters,
         id_synthese_column="id_synthese",
         id_dataset_column="id_dataset",
         observers_column="observers",
@@ -221,12 +218,19 @@ class SyntheseQuery:
 
     def filter_other_filters(self):
         """
-            Other filters
+        Other filters
         """
-
         if "has_medias" in self.filters:
+            self.query = self.query.where(self.model.medias.any())
+
+        if "has_alert" in self.filters:
             self.query = self.query.where(
-                self.model.has_medias
+                self.model.reports.any(TReport.report_type.has(BibReportsTypes.type == "alert"))
+            )
+
+        if "has_pin" in self.filters:
+            self.query = self.query.where(
+                self.model.reports.any(TReport.report_type.has(BibReportsTypes.type == "pin"))
             )
 
         if "id_dataset" in self.filters:
@@ -268,7 +272,7 @@ class SyntheseQuery:
             self.query = self.query.where(self.model.date_max <= date_max)
 
         if "id_acquisition_framework" in self.filters:
-            if hasattr(self.model, 'id_acquisition_framework'):
+            if hasattr(self.model, "id_acquisition_framework"):
                 self.query = self.query.where(
                     self.model.id_acquisition_framework.in_(
                         self.filters.pop("id_acquisition_framework")
@@ -291,11 +295,18 @@ class SyntheseQuery:
                 if "radius" in self.filters:
                     radius = self.filters.pop("radius")[0]
                     wkt = loads(str_wkt)
-                    wkt = circle_from_point(wkt, float(radius))
+                    geom_wkb = from_shape(wkt, srid=4326)
+                    ors.append(
+                        func.ST_DWithin(
+                            func.ST_GeogFromWKB(self.model.the_geom_4326),
+                            func.ST_GeogFromWKB(geom_wkb),
+                            radius,
+                        ),
+                    )
                 else:
                     wkt = loads(str_wkt)
-                geom_wkb = from_shape(wkt, srid=4326)
-                ors.append(self.model.the_geom_4326.ST_Intersects(geom_wkb))
+                    geom_wkb = from_shape(wkt, srid=4326)
+                    ors.append(self.model.the_geom_4326.ST_Intersects(geom_wkb))
 
             self.query = self.query.where(or_(*ors))
             self.filters.pop("geoIntersection")

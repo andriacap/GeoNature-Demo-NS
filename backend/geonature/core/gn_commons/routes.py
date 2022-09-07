@@ -11,7 +11,11 @@ from utils_flask_sqla.response import json_resp
 from utils_flask_sqla_geo.utilsgeometry import remove_third_dimension
 
 from geonature.core.gn_commons.models import (
-    TModules, TParameters, TMobileApps, TPlaces, TAdditionalFields,
+    TModules,
+    TParameters,
+    TMobileApps,
+    TPlaces,
+    TAdditionalFields,
 )
 from geonature.core.gn_commons.repositories import TMediaRepository
 from geonature.core.gn_commons.repositories import get_table_location_id
@@ -43,9 +47,7 @@ def list_modules():
 
     """
     params = request.args
-    q = TModules.query.options(
-        joinedload(TModules.objects)
-    )
+    q = TModules.query.options(joinedload(TModules.objects), joinedload(TModules.datasets))
     if "exclude" in params:
         q = q.filter(TModules.module_code.notin_(params.getlist("exclude")))
     q = q.order_by(TModules.module_order.asc()).order_by(TModules.module_label.asc())
@@ -54,12 +56,12 @@ def list_modules():
     for module in modules:
         cruved = get_scopes_by_action(module_code=module.module_code)
         if cruved["R"] > 0:
-            module_dict = module.as_dict(fields=["objects"])
+            module_dict = module.as_dict(fields=["objects", "datasets"])
             module_dict["cruved"] = cruved
             if module.active_frontend:
                 try:
                     # try to get module url from conf for new modules
-                    module_url = current_app.config[module.module_code]['MODULE_URL']
+                    module_url = current_app.config[module.module_code]["MODULE_URL"]
                 except KeyError:
                     # fallback for legacy modules
                     module_url = module.module_path
@@ -113,6 +115,7 @@ def get_one_parameter(param_name, id_org=None):
     data = q.all()
     return [d.as_dict() for d in data]
 
+
 @routes.route("/additional_fields", methods=["GET"])
 def get_additional_fields():
     params = request.args
@@ -124,8 +127,9 @@ def get_additional_fields():
         else:
             if len(params["id_dataset"].split(",")) > 1:
                 ors = [
-                    TAdditionalFields.datasets.any(id_dataset=id_dastaset) for id_dastaset in params.split(',')
-                    ]
+                    TAdditionalFields.datasets.any(id_dataset=id_dastaset)
+                    for id_dastaset in params.split(",")
+                ]
                 q = q.filter(or_(*ors))
             else:
                 q = q.filter(TAdditionalFields.datasets.any(id_dataset=params["id_dataset"]))
@@ -133,9 +137,9 @@ def get_additional_fields():
         if len(params["module_code"].split(",")) > 1:
 
             ors = [
-                TAdditionalFields.modules.any(module_code=module_code) 
+                TAdditionalFields.modules.any(module_code=module_code)
                 for module_code in params["module_code"].split(",")
-                ]
+            ]
 
             q = q.filter(or_(*ors))
         else:
@@ -144,22 +148,20 @@ def get_additional_fields():
     if "object_code" in params:
         if len(params["object_code"].split(",")) > 1:
             ors = [
-                TAdditionalFields.objects.any(code_object=code_object) for code_object in params["object_code"].split(",")
-                ]
+                TAdditionalFields.objects.any(code_object=code_object)
+                for code_object in params["object_code"].split(",")
+            ]
             q = q.filter(or_(*ors))
         else:
             q = q.filter(TAdditionalFields.objects.any(code_object=params["object_code"]))
-    return jsonify([
-        d.as_dict(fields=[
-            'bib_nomenclature_type',
-            'modules',
-            'objects',
-            'datasets',
-            'type_widget'
-        ])
-        for d in q.all()
-    ])
-
+    return jsonify(
+        [
+            d.as_dict(
+                fields=["bib_nomenclature_type", "modules", "objects", "datasets", "type_widget"]
+            )
+            for d in q.all()
+        ]
+    )
 
 
 @routes.route("/t_mobile_apps", methods=["GET"])
@@ -178,41 +180,24 @@ def get_t_mobile_apps():
     if "app_code" in request.args:
         q = q.filter(TMobileApps.app_code.ilike(params["app_code"]))
     mobile_apps = []
-    for d in q.all():
-        one_app = d.as_dict()
-        one_app["settings"] = {}
+    for app in q.all():
+        app_dict = app.as_dict(exclude=["relative_path_apk"])
+        app_dict["settings"] = {}
         #  if local
-        if one_app["url_apk"] is None or len(one_app["url_apk"]) == 0:
-            try:
-                url_apk = "{}/{}".format(
-                    current_app.config["API_ENDPOINT"], one_app["relative_path_apk"]
-                )
-                one_app["url_apk"] = url_apk
-                dir_app = "/".join(str(BACKEND_DIR / one_app["relative_path_apk"]).split("/")[:-1])
-                settings_file = "{}/settings.json".format(dir_app)
-                with open(settings_file) as f:
-                    one_app["settings"] = json.load(f)
-            except Exception as e:
-                raise e
-
-        else:
-            #  get config
-            dir_app = "/".join(one_app["url_apk"].split("/")[:-1])
-            settings_path = "{}/settings.json".format(dir_app)
-            resp = requests.get(
-                "https://docs.google.com/uc?export=download&id=1hIvdYeBd9NinV7CNcFjWXnBPpImKmYf3"
+        if app.relative_path_apk:
+            app_dict["url_apk"] = "{}/{}".format(
+                current_app.config["API_ENDPOINT"], app.relative_path_apk
             )
-            try:
-                assert resp.status_code == 200
-            except AssertionError:
-                raise GeonatureApiError(
-                    "Impossible to get the settings file at {}".format(settings_path)
-                )
-            one_app["settings"] = json.loads(resp.content)
-        one_app.pop("relative_path_apk")
-        mobile_apps.append(one_app)
-
-        # mobile_apps.append(app)
+            relative_path_dir = app.relative_path_apk.rsplit("/", 1)[0]
+            app_dict["url_settings"] = "{}/{}/{}".format(
+                current_app.config["API_ENDPOINT"],
+                relative_path_dir,
+                "settings.json",
+            )
+            settings_file = BACKEND_DIR / relative_path_dir / "settings.json"
+            with settings_file.open() as f:
+                app_dict["settings"] = json.load(f)
+        mobile_apps.append(app_dict)
     if len(mobile_apps) == 1:
         return mobile_apps[0]
     return mobile_apps
@@ -248,11 +233,9 @@ def add_place():
     data = request.get_json()
     # FIXME check data validity!
     place_name = data["properties"]["place_name"]
-    place_exists = (
-        TPlaces.query
-        .filter(TPlaces.place_name == place_name, TPlaces.id_role == g.current_user.id_role)
-        .exists()
-    )
+    place_exists = TPlaces.query.filter(
+        TPlaces.place_name == place_name, TPlaces.id_role == g.current_user.id_role
+    ).exists()
     if db.session.query(place_exists).scalar():
         raise Conflict("Nom du lieu déjà existant")
 
@@ -267,7 +250,9 @@ def add_place():
     return jsonify(place.as_geofeature())
 
 
-@routes.route("/place/<int:id_place>", methods=["DELETE"])  # XXX best practices recommend plural nouns
+@routes.route(
+    "/place/<int:id_place>", methods=["DELETE"]
+)  # XXX best practices recommend plural nouns
 @routes.route("/places/<int:id_place>", methods=["DELETE"])
 @permissions.check_cruved_scope("D")
 def delete_place(id_place):
@@ -276,6 +261,7 @@ def delete_place(id_place):
         raise Forbidden("Vous n'êtes pas l'utilisateur propriétaire de ce lieu")
     db.session.delete(place)
     db.session.commit()
-    return '', 204
+    return "", 204
+
 
 ##############################

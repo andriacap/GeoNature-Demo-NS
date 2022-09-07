@@ -10,8 +10,8 @@ import sqlalchemy as sa
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision = 'dde31e76ce45'
-down_revision = '6f7d5549d49e'
+revision = "dde31e76ce45"
+down_revision = "6f7d5549d49e"
 branch_labels = None
 depends_on = None
 
@@ -22,7 +22,8 @@ def upgrade():
 
 
 def downgrade():
-    op.execute("""
+    op.execute(
+        """
         CREATE MATERIALIZED VIEW gn_synthese.vm_min_max_for_taxons AS
             WITH
             s as (
@@ -37,9 +38,9 @@ def downgrade():
                 public.ST_Transform(
                     public.ST_SetSRID(
                         public.box2d(public.ST_extent(s.the_geom_local))::geometry,
-                        public.Find_SRID('gn_synthese', 'synthese', 'the_geom_local'),
+                        public.Find_SRID('gn_synthese', 'synthese', 'the_geom_local')
                     ),
-                    4326,
+                    4326
                 ) AS bbox4326
             FROM  s
             GROUP BY cd_ref
@@ -63,7 +64,8 @@ def downgrade():
             LEFT JOIN alt ON alt.cd_ref = loc.cd_ref
             LEFT JOIN dat ON dat.cd_ref = loc.cd_ref
             ORDER BY loc.cd_ref;
-    """)
+    """
+    )
 
     op.execute(
         """

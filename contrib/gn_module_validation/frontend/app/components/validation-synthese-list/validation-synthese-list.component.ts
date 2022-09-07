@@ -23,6 +23,7 @@ import { ValidationModalInfoObsComponent } from "../validation-modal-info-obs/va
 import { SyntheseFormService } from "@geonature_common/form/synthese-form/synthese-form.service";
 import { SyntheseDataService } from "@geonature_common/form/synthese-form/synthese-data.service";
 import { Router } from "@angular/router";
+import { find, isEmpty, get, findIndex } from 'lodash';
 @Component({
   selector: "pnx-validation-synthese-list",
   templateUrl: "validation-synthese-list.component.html",
@@ -54,6 +55,8 @@ export class ValidationSyntheseListComponent
   public validationStatusAsDict: any;
   public datatable_column_list: Array<any>
   public messages: any;
+  public alertActivate: boolean;
+  public pinActivate: boolean;
 
   constructor(
     public mapListService: MapListService,
@@ -71,6 +74,9 @@ export class ValidationSyntheseListComponent
   ngOnInit() {
     // get app config
     this.appConfig = AppConfig;
+
+    this.alertActivate = AppConfig.SYNTHESE.ALERT_MODULES && AppConfig.SYNTHESE.ALERT_MODULES.includes("VALIDATION");
+    this.pinActivate = AppConfig.SYNTHESE.PIN_MODULES && AppConfig.SYNTHESE.PIN_MODULES.includes("VALIDATION");
 
     // get wiewport height to set the number of rows in the tabl
     const h = document.documentElement.clientHeight;
@@ -90,11 +96,11 @@ export class ValidationSyntheseListComponent
       this.mapListService.selectedRow = [];
       const integerId = parseInt(id);
       let i;
-      for (i = 0; i < this.mapListService.tableData.length; i++) {        
+      for (i = 0; i < this.mapListService.tableData.length; i++) {
         if (this.mapListService.tableData[i]["id_synthese"] === integerId) {
           this.mapListService.selectedRow.push(
             this.mapListService.tableData[i]
-          );          
+          );
           break;
         }
       }
@@ -237,7 +243,7 @@ export class ValidationSyntheseListComponent
   }
 
   openInfoModal(row) {
-    if(!row) return;
+    if (!row) return;
     this.oneSyntheseObs = row;
     const modalRef = this.ngbModal.open(ValidationModalInfoObsComponent, {
       size: "lg",
@@ -261,11 +267,50 @@ export class ValidationSyntheseListComponent
         }
       }
     });
+    modalRef.componentInstance.onCloseModal.subscribe(() => {
+      // to refresh mapListService table UI
+      this.updateReports();
+    });
     modalRef.componentInstance.valDate.subscribe(data => {
       for (let obs in this.mapListService.selectedRow) {
         this.mapListService.selectedRow[obs]["validation_date"] = data;
       }
       this.mapListService.selectedRow = [...this.mapListService.selectedRow];
     });
+  }
+
+  /**
+   * Find selected obs row from table list by id synthese, and call reports to update.
+   * This call il required to get report_id value required to use DELETE route
+   */
+  updateReports() {
+    if (this.oneSyntheseObs) {
+      const rowIndex = findIndex(
+        this.mapListService.tableData, ['id_synthese', this.oneSyntheseObs.id_synthese]
+      );
+      // get all reports
+      const params = `idSynthese=${this.oneSyntheseObs.id_synthese}`;
+      this._ds.getReports(params).subscribe(response => {
+        // search alert in table to update and refresh UI
+        this.mapListService.tableData[rowIndex].reports = response;
+      });
+    }
+  }
+
+  /**
+   * Catch report by type from selected obs reports list
+   * @param row from selected table line
+   * @param type from report type
+   * @param attribute attribute to match
+   * @returns object from TReport model
+   */
+  findReportInfo(row, type, attribute) {
+    const reportItem = find(row.reports, ['report_type.type', type]);
+    if (attribute && !isEmpty(reportItem)) {
+      // search a value if we search a value and not complet report
+      return get(reportItem, `${attribute}`);
+    }
+    // search if exists
+    return reportItem;
   }
 }

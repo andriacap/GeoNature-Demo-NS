@@ -320,7 +320,7 @@
       "CountError": "Le dénombrement maximum ne peut pas être inférieur au dénombrement minimum",
       "LifeStageRequiredError": "Veuillez indiquer le stade de vie",
       "SexRequiredError": "Veuillez indiquer le sexe",
-      "CountingObjectRequiredError": "Veuillez indiquer le type de dénombrement"
+      "CountingObjectRequiredError": "Veuillez indiquer l'objet du dénombrement"
     }
   },
   "Geo": {
@@ -334,7 +334,7 @@
   "Synthese": {
     "copy": "Copié dans le presse-papier !",
     "copyPermalink": "Copier le permalien",
-    "Discussion":"Discussion",
+    "Discussion": "Discussion",
     "Commented": "a commenté le",
     "AddComment": "Ajouter un commentaire",
     "ChangeComment": "Modifier",
@@ -349,7 +349,7 @@
     "PeriodError": "Le champs 'periode début' ET 'periode fin' doivent être remplis si vous souhaitez faire une recherche par période",
     "LocationName": "Nom du lieux",
     "Accuracy": "Précision du pointage",
-    "Owner":"Observation de",
+    "Owner": "Observation de",
     "Date": "Date",
     "Altitude": "Altitude",
     "UidObs": "UUID observation",

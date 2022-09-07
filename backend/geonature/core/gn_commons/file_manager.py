@@ -8,21 +8,6 @@ from werkzeug.utils import secure_filename
 from flask import current_app
 
 
-def remove_dir(dirpath):
-    if dirpath == "/":
-        raise Exception("rm / is not possible")
-
-    if not os.path.exists(dirpath):
-        raise FileNotFoundError("not exists {}".format(dirpath))
-    if not os.path.isdir(dirpath):
-        raise FileNotFoundError("not isdir {}".format(dirpath))
-
-    try:
-        rmtree(dirpath)
-    except (OSError, IOError) as e:
-        raise e
-
-
 def remove_file(filepath):
     try:
         os.remove(os.path.join(current_app.config["BASE_DIR"], filepath))
@@ -52,7 +37,8 @@ def upload_file(file, file_folder, file_name):
     filepath = os.path.join(
         filedir,
         "{file_name}.{ext}".format(
-            file_name=removeDisallowedFilenameChars(file_name.rsplit(".", 1)[0]), ext=ext,
+            file_name=removeDisallowedFilenameChars(file_name.rsplit(".", 1)[0]),
+            ext=ext,
         ),
     )
     try:

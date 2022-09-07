@@ -4,7 +4,8 @@
 """
 import json
 
-from flask import Blueprint, request, current_app, redirect
+from flask import Blueprint, request, current_app, redirect, jsonify
+from werkzeug.exceptions import NotFound
 
 from geonature.core.gn_commons.repositories import TMediaRepository, TMediumRepository
 from geonature.core.gn_commons.models import TMedias
@@ -26,8 +27,8 @@ from ..routes import routes
 @json_resp_accept_empty_list
 def get_medias(uuid_attached_row):
     """
-        Retourne des medias
-        .. :quickref: Commons;
+    Retourne des medias
+    .. :quickref: Commons;
     """
 
     res = DB.session.query(TMedias).filter(TMedias.uuid_attached_row == uuid_attached_row).all()
@@ -36,16 +37,16 @@ def get_medias(uuid_attached_row):
 
 
 @routes.route("/media/<int:id_media>", methods=["GET"])
-@json_resp
 def get_media(id_media):
     """
-        Retourne un media
-        .. :quickref: Commons;
+    Retourne un media
+    .. :quickref: Commons;
     """
 
     m = TMediaRepository(id_media=id_media).media
-    if m:
-        return m.as_dict()
+    if not m:
+        raise NotFound
+    return jsonify(m.as_dict())
 
 
 @routes.route("/media", methods=["POST", "PUT"])
@@ -53,10 +54,10 @@ def get_media(id_media):
 @json_resp
 def insert_or_update_media(id_media=None):
     """
-        Insertion ou mise à jour d'un média
-        avec prise en compte des fichiers joints
+    Insertion ou mise à jour d'un média
+    avec prise en compte des fichiers joints
 
-        .. :quickref: Commons;
+    .. :quickref: Commons;
     """
 
     # gestion des parametres de route
@@ -67,6 +68,7 @@ def insert_or_update_media(id_media=None):
         file = None
 
     data = {}
+    # Useful ?
     if request.form:
         formData = dict(request.form)
         for key in formData:
@@ -103,9 +105,9 @@ def insert_or_update_media(id_media=None):
 @json_resp
 def delete_media(id_media):
     """
-        Suppression d'un media
+    Suppression d'un media
 
-        .. :quickref: Commons;
+    .. :quickref: Commons;
     """
 
     TMediaRepository(id_media=id_media).delete()
@@ -118,8 +120,8 @@ def delete_media(id_media):
 @routes.route("/media/thumbnails/<int:id_media>/<int:size>", methods=["GET"])
 def get_media_thumb(id_media, size):
     """
-        Retourne le thumbnail d'un media
-        .. :quickref: Commons;
+    Retourne le thumbnail d'un media
+    .. :quickref: Commons;
     """
     media_repo = TMediaRepository(id_media=id_media)
     m = media_repo.media
