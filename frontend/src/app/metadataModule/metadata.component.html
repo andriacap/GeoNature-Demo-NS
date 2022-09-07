@@ -35,118 +35,116 @@
       <br>
 
       <ng-container *ngIf="(acquisitionFrameworks | async)?.length || isLoading; else noAcquisitionFrameworks">
-        <ng-container *ngIf="(acquisitionFrameworks | async)?.length || isLoading; else noAcquisitionFrameworks">
-          <mat-accordion [multi]="true">
-            <div class="tab-title" *ngIf="!isLoading">
-              <div class="col-md-1">ID </div>
-              <div class="col-md-2"> {{"MetaData.Name" | translate}}</div>
-              <div class="col-md-2"> {{"MetaData.CreationDate" | translate}}</div>
-              <div class="col-md-5">{{"MetaData.Stakeholders" | translate}}</div>
-              <div class="col-md-1">{{"MetaData.Actions" | translate}}</div>
-            </div>
-            <mat-spinner *ngIf="isLoading" diameter="50" strokeWidth="2" style="margin: 0 auto">
-            </mat-spinner>
+        <mat-accordion [multi]="true">
+          <div class="tab-title" *ngIf="!isLoading">
+            <div class="col-md-1">ID </div>
+            <div class="col-md-2"> {{"MetaData.Name" | translate}}</div>
+            <div class="col-md-2"> {{"MetaData.CreationDate" | translate}}</div>
+            <div class="col-md-5">{{"MetaData.Stakeholders" | translate}}</div>
+            <div class="col-md-1">{{"MetaData.Actions" | translate}}</div>
+          </div>
+          <mat-spinner *ngIf="isLoading" diameter="50" strokeWidth="2" style="margin: 0 auto">
+          </mat-spinner>
 
-            <ng-container *ngFor="let af of (acquisitionFrameworks | async); let idx = index">
-              <mat-expansion-panel [expanded]="expandAccordions" [attr.data-qa]='"pnx-metadata-acq-framework"'>
-                <mat-expansion-panel-header collapsedHeight="*" expandedHeight="*"
-                  [attr.data-qa]='"pnx-metadata-acq-framework-header-"+idx'>
-                  <mat-panel-title class="af-title" style="margin-top:2.5%;margin-bottom: 1.2%;">
+          <ng-container *ngFor="let af of (acquisitionFrameworks | async); let idx = index">
+            <mat-expansion-panel [expanded]="expandAccordions" [attr.data-qa]='"pnx-metadata-acq-framework"'>
+              <mat-expansion-panel-header collapsedHeight="*" expandedHeight="*"
+                [attr.data-qa]='"pnx-metadata-acq-framework-header-"+idx'>
+                <mat-panel-title class="af-title" style="margin-top:2.5%;margin-bottom: 1.2%;">
 
-                    <div class="col-md-1">{{ af.id_acquisition_framework }}</div>
-                    <div class="col-md-2">
-                      <a [routerLink]="['/metadata/af_detail', af.id_acquisition_framework]"
-                        [attr.data-qa]='"pnx-metadata-acq-framework-"+idx'>
-                        {{ af.acquisition_framework_name }}
-                        <br />
-                        <small style="color: gray"> {{ af.unique_acquisition_framework_id }} </small>
-                      </a>
-                    </div>
-                    <div class="col-md-2">{{ af.meta_create_date | date: 'd/MM/yyyy' }}</div>
-                    <section class="col-md-5">
-                      <span *ngIf="af.creator"> <b> {{af.creator?.nom_complet}} : </b> {{"MetaData.Designer" |
-                        translate}}</span>
+                  <div class="col-md-1">{{ af.id_acquisition_framework }}</div>
+                  <div class="col-md-2">
+                    <a [routerLink]="['/metadata/af_detail', af.id_acquisition_framework]"
+                      [attr.data-qa]='"pnx-metadata-acq-framework-"+idx'>
+                      {{ af.acquisition_framework_name }}
+                      <br />
+                      <small style="color: gray"> {{ af.unique_acquisition_framework_id }} </small>
+                    </a>
+                  </div>
+                  <div class="col-md-2">{{ af.meta_create_date | date: 'd/MM/yyyy' }}</div>
+                  <section class="col-md-5">
+                    <span *ngIf="af.creator"> <b> {{af.creator?.nom_complet}} : </b> {{"MetaData.Designer" |
+                      translate}}</span>
 
 
-                      <ng-container *ngIf="af.cor_af_actor.length; else elifNoActor">
-                        <div *ngFor="let ac of af.cor_af_actor">
-                          <span *ngIf="ac.organism">
-                            <b> {{ ac.organism?.nom_organisme }} : </b>
-                            {{ ac.nomenclature_actor_role.label_fr }} <br />
-                          </span>
-                          <span *ngIf="ac.role">
-                            <b> {{ ac.role?.nom_complet }} : </b>
-                            {{ ac.nomenclature_actor_role.label_fr }} <br />
-                          </span>
-                        </div>
-                      </ng-container>
-                      <ng-template #elifNoActor>
-                        <div class="alert-actor">
-                          <mat-icon>report</mat-icon>
-                          <span> {{"MetaData.NoStakeholder" | translate}} </span>
-                        </div>
-                      </ng-template>
-                    </section>
+                    <ng-container *ngIf="af.cor_af_actor.length; else elifNoActor">
+                      <div *ngFor="let ac of af.cor_af_actor">
+                        <span *ngIf="ac.organism">
+                          <b> {{ ac.organism?.nom_organisme }} : </b>
+                          {{ ac.nomenclature_actor_role.label_fr }} <br />
+                        </span>
+                        <span *ngIf="ac.role">
+                          <b> {{ ac.role?.nom_complet }} : </b>
+                          {{ ac.nomenclature_actor_role.label_fr }} <br />
+                        </span>
+                      </div>
+                    </ng-container>
+                    <ng-template #elifNoActor>
+                      <div class="alert-actor">
+                        <mat-icon>report</mat-icon>
+                        <span> {{"MetaData.NoStakeholder" | translate}} </span>
+                      </div>
+                    </ng-template>
+                  </section>
 
-                    <div class="col-md-2">
-                      <a mat-icon-button [routerLink]="['/metadata/af_detail', af.id_acquisition_framework]"
-                        matTooltip="{{'MetaData.SeeAFSheet' | translate}}" style="color: black;">
-                        <mat-icon> info</mat-icon>
-                      </a>
-                      <a mat-icon-button [disabled]="!af.cruved.U" matTooltip="{{'MetaData.EditAF' | translate}}"
-                        [routerLink]="['/metadata/af', af.id_acquisition_framework]">
-                        <mat-icon> create</mat-icon>
-                      </a>
-                      <button *ngIf="APP_CONFIG.METADATA?.ENABLE_CLOSE_AF" type="button" mat-icon-button
-                        [disabled]="!af.cruved.V || !af.opened || af['t_datasets'].length == 0" (click)="
+                  <div class="col-md-2">
+                    <a mat-icon-button [routerLink]="['/metadata/af_detail', af.id_acquisition_framework]"
+                      matTooltip="{{'MetaData.SeeAFSheet' | translate}}" style="color: black;">
+                      <mat-icon> info</mat-icon>
+                    </a>
+                    <a mat-icon-button [disabled]="!af.cruved.U" matTooltip="{{'MetaData.EditAF' | translate}}"
+                      [routerLink]="['/metadata/af', af.id_acquisition_framework]">
+                      <mat-icon> create</mat-icon>
+                    </a>
+                    <button *ngIf="APP_CONFIG.METADATA?.ENABLE_CLOSE_AF" type="button" mat-icon-button
+                      [disabled]="!af.cruved.V || !af.opened || af['t_datasets'].length == 0" (click)="
                         openPublishModalAf($event, af.id_acquisition_framework, publishModal)
                       ">
-                        <mat-icon *ngIf="af.opened==false; else elifEmpty"
-                          matTooltip="{{'MetaData.FiledAF' | translate}}"> gavel </mat-icon>
-                        <ng-template #elifEmpty>
-                          <mat-icon *ngIf="af['t_datasets'].length == 0; else elsePublish"
-                            matTooltip="{{'MetaData.EmptyAF' | translate}}"> gavel </mat-icon>
-                        </ng-template>
-                        <ng-template #elsePublish>
-                          <mat-icon matTooltip="{{'MetaData.SubmitAF' | translate}}"> gavel </mat-icon>
-                        </ng-template>
-                      </button>
-                    </div>
-                  </mat-panel-title>
-                </mat-expansion-panel-header>
-                <table class="table table-bordered">
-                  <thead class="bold">
-                    <tr>
-                      <td style="width:1%">
-                        Id
-                      </td>
-                      <td>{{"MetaData.NoStakeholder" | translate}}</td>
-                      <td>{{"MetaData.CreationDate" | translate}}</td>
-                      <td>{{"MetaData.Stakeholders" | translate}}</td>
-                      <td>{{"MetaData.DataAmount" | translate}}</td>
-                      <td>{{"MetaData.Actions" | translate}}</td>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr *ngFor="let dataset of af.datasetsTemp; let last = last" pnx-metadata-dataset
-                      [dataset]="dataset"></tr>
-                  </tbody>
-                </table>
-              </mat-expansion-panel>
-            </ng-container>
-          </mat-accordion>
-          <mat-paginator #paginator [length]="(metadataService.filteredAcquisitionFrameworks | async)?.length || 0"
-            [pageSize]="metadataService.pageSize | async" [pageSizeOptions]="metadataService.pageSizeOptions"
-            [pageIndex]="metadataService.pageIndex | async" (page)="changePaginator($event)">
-          </mat-paginator>
-        </ng-container>
-        <ng-template #noAcquisitionFrameworks>
-          <div class="text-center">{{"MetaData.NoMetadata" | translate}}</div>
-        </ng-template>
+                      <mat-icon *ngIf="af.opened==false; else elifEmpty"
+                        matTooltip="{{'MetaData.FiledAF' | translate}}"> gavel </mat-icon>
+                      <ng-template #elifEmpty>
+                        <mat-icon *ngIf="af['t_datasets'].length == 0; else elsePublish"
+                          matTooltip="{{'MetaData.EmptyAF' | translate}}"> gavel </mat-icon>
+                      </ng-template>
+                      <ng-template #elsePublish>
+                        <mat-icon matTooltip="{{'MetaData.SubmitAF' | translate}}"> gavel </mat-icon>
+                      </ng-template>
+                    </button>
+                  </div>
+                </mat-panel-title>
+              </mat-expansion-panel-header>
+              <table class="table table-bordered">
+                <thead class="bold">
+                  <tr>
+                    <td style="width:1%">
+                      Id
+                    </td>
+                    <td>{{"MetaData.NoStakeholder" | translate}}</td>
+                    <td>{{"MetaData.CreationDate" | translate}}</td>
+                    <td>{{"MetaData.Stakeholders" | translate}}</td>
+                    <td>{{"MetaData.DataAmount" | translate}}</td>
+                    <td>{{"MetaData.Actions" | translate}}</td>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let dataset of af.datasetsTemp; let last = last" pnx-metadata-dataset [dataset]="dataset">
+                  </tr>
+                </tbody>
+              </table>
+            </mat-expansion-panel>
+          </ng-container>
+        </mat-accordion>
+        <mat-paginator #paginator [length]="(metadataService.filteredAcquisitionFrameworks | async)?.length || 0"
+          [pageSize]="metadataService.pageSize | async" [pageSizeOptions]="metadataService.pageSizeOptions"
+          [pageIndex]="metadataService.pageIndex | async" (page)="changePaginator($event)">
+        </mat-paginator>
+      </ng-container>
+      <ng-template #noAcquisitionFrameworks>
+        <div class="text-center">{{"MetaData.NoMetadata" | translate}}</div>
+      </ng-template>
     </div>
   </div>
 </div>
-
 <ng-template #searchModal let-c="close" let-d="dismiss">
   <div class="modal-header">
     <h5 class="modal-title" id="exampleModalLabel"> {{"MetaData.Search" | translate}} </h5>
